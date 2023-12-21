@@ -1,0 +1,7 @@
+PUT http://127.0.0.1:3000/api/persons/657fa81a26c04271dccbac57
+Content-Type: application/json
+
+{
+    "name": "test6",
+    "number": "666"
+}

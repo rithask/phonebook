@@ -1,30 +1,9 @@
+require('dotenv').config()
 const express = require('express')
 const app = express()
 const morgan = require('morgan')
 const cors = require('cors')
-
-let contacts = [
-    { 
-      "id": 1,
-      "name": "Arto Hellas",
-      "number": "040-123456"
-    },
-    { 
-      "id": 2,
-      "name": "Ada Lovelace",
-      "number": "39-44-5323523"
-    },
-    { 
-      "id": 3,
-      "name": "Dan Abramov",
-      "number": "12-43-234345"
-    },
-    { 
-      "id": 4,
-      "name": "Mary Poppendieck",
-      "number": "39-23-6423122"
-    }
-]
+const Contact = require('./models/contact')
 
 app.use(express.json());
 app.use(morgan('tiny'));
@@ -32,11 +11,24 @@ app.use(cors());
 app.use(express.static('dist'));
 
 app.get('/api/persons', (request, response) => {
-    response.json(contacts);
+    Contact.find({})
+        .then(contacts => {
+            response.json(contacts)
+        })
+        .catch(error => next(error))
+})
+
+app.get('/api/persons/:id', (request, response) => {
+    const id = request.params.id;
+
+    Contact.findById(id)
+        .then(contact => {
+            response.json(contact)
+        })
+        .catch(error => next(error))
 })
 
 app.post('/api/persons', (request, response) => {
-    const id = Math.floor(Math.random() * 100);
     const name = request.body.name;
     const number = request.body.number;
 
@@ -49,52 +41,72 @@ app.post('/api/persons', (request, response) => {
         })
     }
 
-    const nameExist = contacts.some(contact => contact.name.includes(name));
-    if (nameExist) {
-        return response.status(400).json({
-            error: "name must be unique"
+    const contact = new Contact({
+        name, number
+    })
+
+    contact.save()
+        .then(savedContact => {
+            response.json(savedContact)
         })
-    }
-
-    const contact = {
-        id, name, number
-    }
-
-    contacts = contacts.concat(contact);
-
-    response.json(contact);
+        .catch(error => next(error))
 })
 
-app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id);
-    const contact = contacts.find(contact => contact.id === id)
+app.put('/api/persons/:id', (request, response) => {
+    const body = request.body
 
-    if (contact) {
-        response.json(contact);
-    } else {
-        response.status(404).end();
+    const contact = {
+        name: body.name,
+        number: body.number
     }
+
+    Contact.findByIdAndUpdate(request.params.id, contact, { new: true })
+        .then(updatedContact => {
+            response.json(updatedContact)
+        })
+        .catch(error => next(error))
 })
 
 app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id);
-    contacts = contacts.filter(contact => contact.id !== id)
-
-    response.json(contacts);
+    const id = request.params.id;
+    Contact.findByIdAndDelete(id)
+        .then(result => {
+            response.status(204).end()
+        })
+        .catch(error => next(error))
 })
 
 app.get('/info', (request, response) => {
-    const numOfContacts = contacts.length;
-    const datetime = new Date();
-
-    console.log(datetime);
-
-    const msg = `<p>Phonebook has info for ${numOfContacts} people</p><p>${datetime}</p>`
-
-    response.send(msg);
+    Contact.find({}).then(contacts => {
+        const numOfContacts = contacts.length;
+        const datetime = new Date();
+        
+        console.log(datetime);
+        
+        const msg = `<p>Phonebook has info for ${numOfContacts} people</p><p>${datetime}</p>`
+        
+        response.send(msg);
+    })
 })
 
-const PORT = process.env.PORT || 3000
+const unknownEndpoint = (request, response) => {
+    response.status(404).send({ error: 'unknown endpoint' })
+}
+
+const errorHandler = (error, request, response, next) => {
+    console.log(error.message)
+
+    if (error.name == 'CastError') {
+        return response.static(404).send({error: 'malformatted id'})
+    }
+
+    next(error)
+}
+
+app.use(unknownEndpoint)
+app.use(errorHandler)
+
+const PORT = process.env.PORT
 app.listen(PORT, () => {
     console.log(`Server running on port http://127.0.0.1:${PORT}`);
 })
