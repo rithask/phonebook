@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  app:
+    container_name: whitepages
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3030:3030"
+    restart: unless-stopped
